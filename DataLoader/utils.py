@@ -36,3 +36,11 @@ def sanitise_text(name) -> list:
     cleaned_title = re.sub(r"[^\w\s]", "", name)
     tokenised_title = [word.lower() for word in cleaned_title.split()]
     return tokenised_title
+
+chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+char_to_idx = {char: idx + 1 for idx, char in enumerate(chars)}  # 1-indexed
+char_to_idx["<PAD>"] = 0  # Add padding index
+
+def generate_ticker_encoding(ticker: str, max_len: int) -> list[int]:
+    ticker_encoding = [char_to_idx[c] for c in ticker] + [0 for i in range(max_len - len(ticker))]
+    return ticker_encoding

@@ -3,8 +3,10 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from transformers import BertTokenizer, BertModel
 import numpy as np
+from utils import generate_ticker_encoding
 
 BATCH_SIZE=16
+MAX_TICKER_LENGTH=4
 STRING_HEADERS = {"Date", "Title", "Ticker"}
 
 class FinancialDataset(Dataset):
@@ -22,8 +24,6 @@ class FinancialDataset(Dataset):
         row = self.data.iloc[idx]
         
         # Numerical features
-        print(row[self.numerical_headers_past])
-
         numerical_features = torch.tensor(
             row[self.numerical_headers_past].values.astype(float), dtype=torch.float64
         )
@@ -39,7 +39,10 @@ class FinancialDataset(Dataset):
         )
 
         ticker = row['Ticker']
-        date = row['Date']
+        date = pd.to_datetime(row['Date'])
+
+        date_features = [date.year, date.month, date.day]
+        ticker_feature = generate_ticker_encoding(ticker, MAX_TICKER_LENGTH)
         
         # Labels (if any, optional)
         label = row.get(self.label_header, None)  # Replace 'label' with your actual label column
@@ -50,7 +53,9 @@ class FinancialDataset(Dataset):
             "numerical_features": numerical_features,
             "text_input_ids": encoded_text['input_ids'].squeeze(0),
             "text_attention_mask": encoded_text['attention_mask'].squeeze(0),
-            "label": label if label is not None else None
+            "label": label if label is not None else None,
+            "date": torch.tensor(date_features),
+            "ticker": torch.tensor(ticker_feature)
         }
 
 # How to use:
@@ -60,4 +65,8 @@ if __name__ == "__main__":
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     dataset = FinancialDataset(file_path, tokenizer)
     dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
-"""   
+
+    for (batch_idx, data) in enumerate(dataloader):
+        print(data)
+        break
+""" 
