@@ -100,7 +100,6 @@ def combine_headlines_and_stock_prices(csv_file, back_window_size=7, forward_win
         write_header = True
 
         for chunk in pd.read_csv(input_file, chunksize=CHUNK_SIZE, parse_dates=["date"]):
-            chunk = chunk.sort_values(["stock", "date"])
             combined_pd = None
 
             for _, row in chunk.iterrows():
@@ -140,6 +139,6 @@ def combine_headlines_and_stock_prices(csv_file, back_window_size=7, forward_win
 # run this script to generate the CSV file for the dataset
 
 if __name__ == "__main__":
-    filtered_headlines_file = generate_filtered_csv_file(CSV_FILE)
-    combine_headlines_and_stock_prices(filtered_headlines_file, back_window_size=7, forward_window_size=1)        
+    #filtered_headlines_file = generate_filtered_csv_file(CSV_FILE)
+    combine_headlines_and_stock_prices("../Data/analyst_ratings_processed_filtered.csv", back_window_size=7, forward_window_size=1)        
 
