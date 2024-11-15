@@ -1,0 +1,38 @@
+import csv
+import requests
+import re
+
+STOCK_DATA_PATH = "/stock_data"
+
+def extract_tickers(file_name):
+    tickers = set()
+
+    with open(file_name, "r") as file:
+        reader = csv.reader(file)
+
+        for row in reader:
+            if len(row) == 4: # some rows have missing data
+                tickers.add(row[-1]) 
+    return tickers
+
+def get_company_names(tickers: set, user_agent: str) -> dict:
+    SEC_URL = "https://www.sec.gov/files/company_tickers.json"
+    
+    company_name_dict = dict()
+    
+    response = requests.get(SEC_URL, headers={
+        "User-Agent": user_agent
+    })
+    response.raise_for_status()
+    data = response.json()
+
+    for entry in data.values():
+        if entry['ticker'].upper() in tickers:
+            company_name_dict[entry['ticker'].upper()] = entry['title']
+    
+    return company_name_dict
+
+def sanitise_text(name) -> list:
+    cleaned_title = re.sub(r"[^\w\s]", "", name)
+    tokenised_title = [word.lower() for word in cleaned_title.split()]
+    return tokenised_title
