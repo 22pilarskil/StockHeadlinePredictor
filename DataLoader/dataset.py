@@ -1,13 +1,14 @@
 import pandas as pd
 import torch
-from torch.utils.data import Dataset, DataLoader
-from transformers import BertTokenizer, BertModel
+from torch.utils.data import Dataset
 import numpy as np
-from utils import generate_ticker_encoding
+from DataLoader.utils import generate_ticker_encoding
 
 BATCH_SIZE=16
 MAX_TICKER_LENGTH=4
 STRING_HEADERS = {"Date", "Title", "Ticker"}
+NUM_FEATURES=5
+WINDOW_SIZE=7
 
 class FinancialDataset(Dataset):
     def __init__(self, file_path, tokenizer, max_len=128):
@@ -26,7 +27,7 @@ class FinancialDataset(Dataset):
         # Numerical features
         numerical_features = torch.tensor(
             row[self.numerical_headers_past].values.astype(float), dtype=torch.float64
-        )
+        ).reshape(NUM_FEATURES, WINDOW_SIZE)
         
         # Text features (headline)
         headline = row['Title']
@@ -42,12 +43,19 @@ class FinancialDataset(Dataset):
         date = pd.to_datetime(row['Date'])
 
         date_features = [date.year, date.month, date.day]
-        ticker_feature = generate_ticker_encoding(ticker, MAX_TICKER_LENGTH)
+        ticker_feature = ticker #generate_ticker_encoding(ticker, MAX_TICKER_LENGTH)
         
         # Labels (if any, optional)
-        label = row.get(self.label_header, None)  # Replace 'label' with your actual label column
-        if label is not None:
-            label = torch.tensor(label, dtype=torch.float64)
+        label = row.get(self.label_header)  # Replace 'label' with your actual label column
+
+        print(
+            f"numerical_features: {numerical_features.shape}, "
+            f"text_input_ids: {encoded_text['input_ids'].squeeze(0).shape}, "
+            f"text_attention_mask: {encoded_text['attention_mask'].squeeze(0).shape}, "
+            f"label: {label}, "
+            f"date: {torch.tensor(date_features).shape}, "
+            f"ticker: {ticker_feature}"
+        )
 
         return {
             "numerical_features": numerical_features,
@@ -55,7 +63,7 @@ class FinancialDataset(Dataset):
             "text_attention_mask": encoded_text['attention_mask'].squeeze(0),
             "label": label if label is not None else None,
             "date": torch.tensor(date_features),
-            "ticker": torch.tensor(ticker_feature)
+            "ticker": ticker_feature
         }
 
 # How to use:
