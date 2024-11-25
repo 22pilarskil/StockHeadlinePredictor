@@ -1,11 +1,11 @@
 import csv
 import pandas as pd
-from utils import extract_tickers, get_company_names, sanitise_text
+from utils import extract_tickers, get_company_names, sanitise_text, rename_stock_files
 from stock_history import StockHistory
 from errors import StockNotFoundError, InsufficientDatapointsError
 
 DATA_FOLDER_PATH = "../Data/"
-STOCK_DATA_FOLDER_PATH = DATA_FOLDER_PATH + "stock_data/"
+STOCK_DATA_FOLDER_PATH = DATA_FOLDER_PATH + "-4Weeks+2WeeksData/"
 CSV_FILE = DATA_FOLDER_PATH + "analyst_ratings_processed.csv"
 USER_AGENT = None # change this!
 
@@ -139,6 +139,7 @@ def combine_headlines_and_stock_prices(csv_file, back_window_size=7, forward_win
 # run this script to generate the CSV file for the dataset
 
 if __name__ == "__main__":
-    #filtered_headlines_file = generate_filtered_csv_file(CSV_FILE)
+    rename_stock_files(STOCK_DATA_FOLDER_PATH)
+    filtered_headlines_file = generate_filtered_csv_file(CSV_FILE)
     combine_headlines_and_stock_prices("../Data/analyst_ratings_processed_filtered.csv", back_window_size=7, forward_window_size=1)        
 

@@ -1,8 +1,7 @@
 import csv
 import requests
 import re
-
-STOCK_DATA_PATH = "/stock_data"
+import os
 
 def extract_tickers(file_name):
     tickers = set()
@@ -44,3 +43,15 @@ char_to_idx["<PAD>"] = 0  # Add padding index
 def generate_ticker_encoding(ticker: str, max_len: int) -> list[int]:
     ticker_encoding = [char_to_idx[c] for c in ticker] + [0 for i in range(max_len - len(ticker))]
     return ticker_encoding
+
+def rename_stock_files(folder_path):
+    for filename in os.listdir(folder_path):
+        file_path = os.path.join(folder_path, filename)
+
+        if os.path.isfile(file_path) and not filename.endswith('.csv'):
+            # Create the new filename with .csv extension
+            ticker = filename.split("_")[0]
+            new_file_path = os.path.join(folder_path, ticker + '.csv')
+        
+            # Rename the file
+            os.rename(file_path, new_file_path)

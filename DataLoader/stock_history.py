@@ -25,25 +25,49 @@ class StockHistory:
         df = df.sort_values(by=DATE_HEADER, ascending=False)
 
         lagged_data = {}
-        headers = ["Open", "High", "Low", "Close", "Volume"]
+        headers = ["Open", "High", "Low", "Close"]
+
+        # Volume pct_change expressed as a fraction of the previous day's volume
+        df["Volume_pct_change"] = df["Volume"].pct_change()
 
         for header in headers:
-            if header == "Volume":
-                # normalise the volume
-                df[f"{header}_processed"] = (df[header] - df[header].mean()) / df[header].std()
-            else:
-                # Use log returns for price attributes
-                df[f"{header}_processed"] = np.log(df[header] / df[header].shift(-1))
+            # Use log returns for price attributes
+            df[f"{header}_processed"] = np.log(df[header] / df[header].shift(-1))
         df = df.head(-1).reset_index(drop=True)
 
+        # Use a rolling window of 10 trading days to compute 2-week volatility (annualised)
+        lagged_data["2_week_volatility"] = df["Close_processed"].rolling(window=10).std() * (252 ** 0.5)
+
+        # RSI Computation (2 weeks)
+        RSI_WINDOW = 10
+        df["Close_change"] = df["Close"].diff()
+        df['Gain'] = df['Close_change'].apply(lambda x: x if x > 0 else 0)
+        df['Loss'] = df['Close_change'].apply(lambda x: -x if x < 0 else 0)
+
+        df["Avg_gain"] = df["Gain"].rolling(window=RSI_WINDOW, min_periods=RSI_WINDOW).mean()
+        df["Avg_loss"] = df["Loss"].rolling(window=RSI_WINDOW, min_periods=RSI_WINDOW).mean()
+
+        # Wilder's smoothing for RSI
+        for i in range(RSI_WINDOW, len(df)):
+            df.loc[i, 'Avg_gain'] = (df.loc[i-1, 'Avg_gain'] * (RSI_WINDOW - 1) + df.loc[i, 'Gain']) / RSI_WINDOW
+            df.loc[i, 'Avg_loss'] = (df.loc[i-1, 'Avg_loss'] * (RSI_WINDOW - 1) + df.loc[i, 'Loss']) / RSI_WINDOW
+
+        lagged_data["2_week_RSI"] = 100 - (100 / (1 + df["Avg_gain"] / df["Avg_loss"]))
+
+        # Compute lagged data for past window
         for i in range(1, back_window_size + 1):
             for header in headers:
                 lagged_data[f"D-{i} {header}"] = df[f"{header}_processed"].shift(-i)
+            lagged_data[f"D-{i} Volume"] = df["Volume"].shift(-i)
+            lagged_data[f"D-{i} Volume_pct_change"] = df["Volume_pct_change"].shift(-i)
         
+        # Compute lagged data for future window i.e. labels
         # start from D+1 rather than D+0
         for i in range(1, forward_window_size + 1):
             for header in headers:
                 lagged_data[f"D+{i} {header}"] = df[f"{header}_processed"].shift(i)
+            lagged_data[f"D+{i} Volume"] = df["Volume"].shift(i)
+            lagged_data[f"D+{i} Volume_pct_change"] = df["Volume_pct_change"].shift(i)
 
         lagged_df = pd.DataFrame(lagged_data)
         combined_df = pd.concat([df[DATE_HEADER], lagged_df], axis=1).dropna().reset_index(drop=True)
