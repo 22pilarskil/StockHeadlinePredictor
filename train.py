@@ -76,7 +76,7 @@ def train_epoch(model, data_loader, loss_function, optimizer, device, epoch):
     return avg_loss, accuracy
 
 
-def evaluate(model, data_loader, loss_function, device):
+def evaluate(model, data_loader, loss_function, device, epoch):
     model.eval()
     total_loss = 0
     total_examples = 0
@@ -107,6 +107,8 @@ def evaluate(model, data_loader, loss_function, device):
     avg_loss = total_loss / total_examples
     accuracy = accuracy_score(all_labels, all_preds)
     f1 = f1_score(all_labels, all_preds, average='weighted')  
+    print("EPOCH {}\nAverage Loss: {}\nAccuracy: {}\nF1 Score: {}\n-----------------------------------\n".format(epoch, avg_loss, accuracy, f1))
+
 
     return avg_loss, accuracy, f1
 
@@ -158,11 +160,11 @@ if __name__ == "__main__":
     model = model.to(device)
 
     epoch = 0
+    avg_loss, accuracy, f1 = evaluate(model, test_dataloader, loss_fn, device, epoch)
     for i in range(EPOCHS):
         epoch += 1
         train_epoch(model, train_dataloader, loss_fn, optimizer, device, epoch)
-        avg_loss, accuracy, f1 = evaluate(model, test_dataloader, loss_fn, device)
-        print("EPOCH {}\nAverage Loss: {}\nAccuracy: {}\nF1 Score: {}\n-----------------------------------\n".format(epoch, avg_loss, accuracy, f1))
+        avg_loss, accuracy, f1 = evaluate(model, test_dataloader, loss_fn, device, epoch)
         save_model(epoch, model, optimizer, NEUTRAL_WINDOW, 'model_checkpoint.pth')
 
     model, optimizer, epoch, neutral_window = load_model('model_checkpoint.pth', model, optimizer)
