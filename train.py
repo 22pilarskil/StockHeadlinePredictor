@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 from DataLoader.dataset import FinancialDataset
 from sklearn.metrics import accuracy_score, f1_score
 from model import StockPredictor
+import argparse
 
 
 BATCH_SIZE=16
@@ -117,7 +118,18 @@ def evaluate(model, data_loader, loss_function, device):
 
 
 if __name__ == "__main__":
-    file_path = "analyst_ratings_processed_filtered_combined.csv"
+
+    parser = argparse.ArgumentParser(description="Train and evaluate a stock predictor model.")
+    parser.add_argument(
+        "--file_path", 
+        type=str, 
+        default="analyst_ratings_processed_filtered_combined.csv",
+        help="Path to the dataset file."
+    )
+    args = parser.parse_args()
+
+    file_path = args.file_path
+
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     dataset = FinancialDataset(file_path, tokenizer)
 
