@@ -27,7 +27,7 @@ def save_model(epoch, model, optimizer, neutral_window, model_save_path):
     torch.save(checkpoint, model_save_path)
 
 def load_model(model_save_path, model, optimizer):
-    checkpoint = torch.load('model_checkpoint.pth')
+    checkpoint = torch.load(model_save_path)
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     current_epoch = checkpoint['epoch']
@@ -60,6 +60,7 @@ def train_epoch(model, data_loader, loss_function, optimizer, device, epoch):
 
         if batch_num % PRINT_EVERY == 0:
             print("EPOCH {}: BATCH {}/{}, LOSS: {:.4f}".format(epoch, batch_num, len(data_loader), loss.item() / input_ids.size(0)))
+            print("LOGITS MEAN", logits.mean(dim=0))
 
         total_loss += loss.item()
         total_examples += input_ids.size(0)
@@ -76,20 +77,28 @@ def train_epoch(model, data_loader, loss_function, optimizer, device, epoch):
     return avg_loss, accuracy
 
 
-def evaluate(model, data_loader, loss_function, device):
+def evaluate(model, data_loader, loss_function, device, epoch):
     model.eval()
     total_loss = 0
     total_examples = 0
     all_preds = []
     all_labels = []
+    positive_samples = 0
+    negative_samples = 0
+    neutral_samples = 0
 
     with torch.no_grad(): 
         for batch_num, batch in enumerate(data_loader):
             input_ids = batch['text_input_ids'].to(device)
             attention_mask = batch['text_attention_mask'].to(device)
             financial_data = batch['numerical_features'].to(device)
+
             labels = batch['label'].to(device)
             labels = convert_to_class_indices(labels, NEUTRAL_WINDOW)
+            counts = torch.bincount(labels, minlength=3) 
+            negative_samples += counts[0]
+            neutral_samples += counts[1]
+            positive_samples += counts[2]
 
             logits = model(input_ids=input_ids, attention_mask=attention_mask, financial_data=financial_data)
 
@@ -107,6 +116,11 @@ def evaluate(model, data_loader, loss_function, device):
     avg_loss = total_loss / total_examples
     accuracy = accuracy_score(all_labels, all_preds)
     f1 = f1_score(all_labels, all_preds, average='weighted')  
+    print("EPOCH {}:\nAverage Loss: {}\nAccuracy: {}\nF1 Score: {}".format(epoch, avg_loss, accuracy, f1))
+    print("Data distribution:\nNegative Samples: {}\nNeutral Samples: {}\nNegative Samples: {}".format(negative_samples, neutral_samples, positive_samples))
+    print("Negative %: {:.4f}\nNeutral %: {:.4f}\nPositive %: {:.4f}".format(negative_samples / total_examples, neutral_samples / total_examples, positive_samples / total_examples))
+    print("-----------------------------------\n")
+
 
     return avg_loss, accuracy, f1
 
@@ -158,11 +172,11 @@ if __name__ == "__main__":
     model = model.to(device)
 
     epoch = 0
+    avg_loss, accuracy, f1 = evaluate(model, test_dataloader, loss_fn, device, epoch)
     for i in range(EPOCHS):
         epoch += 1
         train_epoch(model, train_dataloader, loss_fn, optimizer, device, epoch)
-        avg_loss, accuracy, f1 = evaluate(model, test_dataloader, loss_fn, device)
-        print("EPOCH {}\nAverage Loss: {}\nAccuracy: {}\nF1 Score: {}\n-----------------------------------\n".format(epoch, avg_loss, accuracy, f1))
+        avg_loss, accuracy, f1 = evaluate(model, test_dataloader, loss_fn, device, epoch)
         save_model(epoch, model, optimizer, NEUTRAL_WINDOW, 'model_checkpoint.pth')
 
     model, optimizer, epoch, neutral_window = load_model('model_checkpoint.pth', model, optimizer)
