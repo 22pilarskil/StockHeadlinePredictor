@@ -155,6 +155,7 @@ if __name__ == "__main__":
     learning_rate = 1e-4
     optimizer = AdamW(model.parameters(), lr=learning_rate)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
 
     epoch = 0
     for i in range(EPOCHS):
