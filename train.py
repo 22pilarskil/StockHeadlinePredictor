@@ -6,6 +6,11 @@ from sklearn.metrics import accuracy_score, f1_score
 from model import StockPredictor
 import argparse
 
+BATCH_SIZE = None
+NEUTRAL_WINDOW = None
+PRINT_EVERY = None
+EARLY_EXIT = None
+EPOCHS = None
 
 def convert_to_class_indices(labels, neutral_window):
     class_labels = torch.empty(labels.size(0), device=labels.device, dtype=torch.long)
@@ -121,7 +126,6 @@ def evaluate(model, data_loader, loss_function, device, epoch):
     print("Negative %: {:.4f}\nNeutral %: {:.4f}\nPositive %: {:.4f}".format(negative_samples / total_examples, neutral_samples / total_examples, positive_samples / total_examples))
     print("-----------------------------------\n")
 
-
     return avg_loss, accuracy, f1
 
 
@@ -181,3 +185,6 @@ if __name__ == "__main__":
 
     model, optimizer, epoch, neutral_window = load_model('model_checkpoint.pth', model, optimizer)
     print(neutral_window)
+
+# Example usage:
+# python3 train.py --print_every 100 --epochs 5 --batch_size 32
