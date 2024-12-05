@@ -7,8 +7,8 @@ from DataLoader.utils import generate_ticker_encoding
 BATCH_SIZE=16
 MAX_TICKER_LENGTH=4
 STRING_HEADERS = {"Date", "Title", "Ticker"}
-NUM_FEATURES=5
-WINDOW_SIZE=7
+NUM_FEATURES=8
+WINDOW_SIZE=10
 
 class FinancialDataset(Dataset):
     def __init__(self, file_path, tokenizer, max_len=128):
@@ -48,14 +48,14 @@ class FinancialDataset(Dataset):
         # Labels (if any, optional)
         label = row.get(self.label_header)  # Replace 'label' with your actual label column
 
-        print(
-            f"numerical_features: {numerical_features.shape}, "
-            f"text_input_ids: {encoded_text['input_ids'].squeeze(0).shape}, "
-            f"text_attention_mask: {encoded_text['attention_mask'].squeeze(0).shape}, "
-            f"label: {label}, "
-            f"date: {torch.tensor(date_features).shape}, "
-            f"ticker: {ticker_feature}"
-        )
+        # print(
+        #     f"numerical_features: {numerical_features.shape}, "
+        #     f"text_input_ids: {encoded_text['input_ids'].squeeze(0).shape}, "
+        #     f"text_attention_mask: {encoded_text['attention_mask'].squeeze(0).shape}, "
+        #     f"label: {label}, "
+        #     f"date: {torch.tensor(date_features).shape}, "
+        #     f"ticker: {ticker_feature}"
+        # )
 
         return {
             "numerical_features": numerical_features,

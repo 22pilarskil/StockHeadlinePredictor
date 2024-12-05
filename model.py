@@ -46,3 +46,5 @@ class StockPredictor(nn.Module):
         logits = self.classifier(cls_token_output)
                 
         return logits
+    
+
