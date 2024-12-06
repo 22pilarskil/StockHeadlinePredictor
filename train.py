@@ -5,6 +5,7 @@ from DataLoader.dataset import FinancialDataset
 from sklearn.metrics import accuracy_score, f1_score
 from model import StockPredictor
 import argparse
+import os
 
 BATCH_SIZE = None
 NEUTRAL_WINDOW = None
@@ -144,6 +145,7 @@ if __name__ == "__main__":
     parser.add_argument("--print_every", type=int, default=1, help="Print loss every n batches.")
     parser.add_argument("--early_exit", type=int, default=None, help="Exit training after n batches for debugging.")
     parser.add_argument("--epochs", type=int, default=0, help="Number of epochs")
+    parser.add_argument("--checkpoint_path", type=str, default="model_checkpoint.pth")
     args = parser.parse_args()
 
     file_path = args.file_path
@@ -152,6 +154,7 @@ if __name__ == "__main__":
     PRINT_EVERY = args.print_every
     EARLY_EXIT = args.early_exit
     EPOCHS = args.epochs
+    checkpoint_path = args.checkpoint_path
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     dataset = FinancialDataset(file_path, tokenizer)
@@ -161,6 +164,7 @@ if __name__ == "__main__":
     train_size = int((1 - test_ratio) * dataset_size)
     test_size = dataset_size - train_size
 
+    torch.manual_seed(42)
     train_dataset, test_dataset = torch.utils.data.random_split(
         dataset, [train_size, test_size]
     )
@@ -176,14 +180,17 @@ if __name__ == "__main__":
     model = model.to(device)
 
     epoch = 0
+    if os.path.exists(checkpoint_path):
+        model, optimizer, epoch, neutral_window = load_model(checkpoint_path, model, optimizer)
+
     avg_loss, accuracy, f1 = evaluate(model, test_dataloader, loss_fn, device, epoch)
-    for i in range(EPOCHS):
+    for i in range(epoch, EPOCHS):
         epoch += 1
         train_epoch(model, train_dataloader, loss_fn, optimizer, device, epoch)
         avg_loss, accuracy, f1 = evaluate(model, test_dataloader, loss_fn, device, epoch)
-        save_model(epoch, model, optimizer, NEUTRAL_WINDOW, 'model_checkpoint.pth')
+        save_model(epoch, model, optimizer, NEUTRAL_WINDOW, checkpoint_path)
 
-    model, optimizer, epoch, neutral_window = load_model('model_checkpoint.pth', model, optimizer)
+    model, optimizer, epoch, neutral_window = load_model(checkpoint_path, model, optimizer)
     print(neutral_window)
 
 # Example usage:
