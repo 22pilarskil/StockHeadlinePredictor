@@ -33,7 +33,6 @@ def train_epoch(model, data_loader, loss_function, optimizer, device, epoch):
 
         optimizer.zero_grad()
 
-        print(batch["headlines"])
         if IS_BASELINE:
             logits = model(headlines=headlines, financial_data=financial_data, device=device)
         else:
