@@ -35,7 +35,7 @@ def train_epoch(model, data_loader, loss_function, optimizer, device, epoch):
 
         print(batch["headlines"])
         if IS_BASELINE:
-            logits = model(headlines=headlines, financial_data=financial_data)
+            logits = model(headlines=headlines, financial_data=financial_data, device=device)
         else:
             logits = model(input_ids=input_ids, attention_mask=attention_mask, financial_data=financial_data)
 
@@ -88,7 +88,7 @@ def evaluate(model, data_loader, loss_function, device, epoch):
             positive_samples += counts[2]
 
             if IS_BASELINE:
-                logits = model(headlines=headlines, financial_data=financial_data)
+                logits = model(headlines=headlines, financial_data=financial_data, device=device)
             else:
                 logits = model(input_ids=input_ids, attention_mask=attention_mask, financial_data=financial_data)
 

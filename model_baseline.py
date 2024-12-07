@@ -15,7 +15,7 @@ class BaselineModel(nn.Module):
         )
         self.linear = nn.Linear(hidden_dim, num_labels)
 
-    def forward(self, headlines, financial_data):
+    def forward(self, headlines, financial_data, device):
         financial_data = financial_data.float()
 
         encoded_text = self.tokenizer(
@@ -25,8 +25,8 @@ class BaselineModel(nn.Module):
             max_length=128,
             return_tensors="pt" 
         )
-        input_ids = encoded_text['input_ids'].squeeze(0)
-        attention_mask = encoded_text['attention_mask'].squeeze(0)
+        input_ids = encoded_text['input_ids'].squeeze(0).to(device)
+        attention_mask = encoded_text['attention_mask'].squeeze(0).to(device)
 
         sentiment_scores = self.finbert(input_ids=input_ids, attention_mask=attention_mask)[0]
 
