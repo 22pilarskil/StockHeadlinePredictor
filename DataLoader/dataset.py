@@ -17,6 +17,7 @@ class FinancialDataset(Dataset):
         self.max_len = max_len
         self.numerical_headers_past = [header for header in list(self.data) if header not in STRING_HEADERS and "+" not in header]
         self.label_header = "D+1 High"
+        
 
     def __len__(self):
         return len(self.data)
@@ -63,7 +64,8 @@ class FinancialDataset(Dataset):
             "text_attention_mask": encoded_text['attention_mask'].squeeze(0),
             "label": label if label is not None else None,
             "date": torch.tensor(date_features),
-            "ticker": ticker_feature
+            "ticker": ticker_feature,
+            "headlines": headline
         }
 
 # How to use:

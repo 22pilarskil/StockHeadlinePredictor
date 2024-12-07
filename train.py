@@ -4,6 +4,8 @@ from torch.utils.data import DataLoader
 from DataLoader.dataset import FinancialDataset
 from sklearn.metrics import accuracy_score, f1_score
 from model import StockPredictor
+from model_baseline import BaselineModel
+from util import *
 import argparse
 import os
 
@@ -12,35 +14,7 @@ NEUTRAL_WINDOW = None
 PRINT_EVERY = None
 EARLY_EXIT = None
 EPOCHS = None
-
-def convert_to_class_indices(labels, neutral_window):
-    class_labels = torch.empty(labels.size(0), device=labels.device, dtype=torch.long)
-    class_labels[labels < -neutral_window] = 0  # Negative class
-    class_labels[(labels >= -neutral_window) & (labels <= neutral_window)] = 1  # Neutral class
-    class_labels[labels > neutral_window] = 2  # Positive class
-
-    return class_labels
-
-
-def save_model(epoch, model, optimizer, neutral_window, model_save_path):
-    checkpoint = {
-        'epoch': epoch,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'neutral_window': neutral_window
-    }
-
-    torch.save(checkpoint, model_save_path)
-
-def load_model(model_save_path, model, optimizer):
-    checkpoint = torch.load(model_save_path)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    current_epoch = checkpoint['epoch']
-    neutral_window = checkpoint['neutral_window']
-    return model, optimizer, current_epoch, neutral_window
-
-
+IS_BASELINE = True
 
 def train_epoch(model, data_loader, loss_function, optimizer, device, epoch):
     model.train()
@@ -55,10 +29,16 @@ def train_epoch(model, data_loader, loss_function, optimizer, device, epoch):
         financial_data = batch['numerical_features'].to(device)
         labels = batch['label'].to(device)
         labels = convert_to_class_indices(labels, NEUTRAL_WINDOW)
+        headlines = batch['headlines']
 
         optimizer.zero_grad()
 
-        logits = model(input_ids=input_ids, attention_mask=attention_mask, financial_data=financial_data)
+        print(batch["headlines"])
+        if IS_BASELINE:
+            logits = model(headlines=headlines, financial_data=financial_data)
+        else:
+            logits = model(input_ids=input_ids, attention_mask=attention_mask, financial_data=financial_data)
+
 
         loss = loss_function(logits, labels)
         loss.backward()
@@ -98,6 +78,7 @@ def evaluate(model, data_loader, loss_function, device, epoch):
             input_ids = batch['text_input_ids'].to(device)
             attention_mask = batch['text_attention_mask'].to(device)
             financial_data = batch['numerical_features'].to(device)
+            headlines = batch['headlines']
 
             labels = batch['label'].to(device)
             labels = convert_to_class_indices(labels, NEUTRAL_WINDOW)
@@ -106,7 +87,10 @@ def evaluate(model, data_loader, loss_function, device, epoch):
             neutral_samples += counts[1]
             positive_samples += counts[2]
 
-            logits = model(input_ids=input_ids, attention_mask=attention_mask, financial_data=financial_data)
+            if IS_BASELINE:
+                logits = model(headlines=headlines, financial_data=financial_data)
+            else:
+                logits = model(input_ids=input_ids, attention_mask=attention_mask, financial_data=financial_data)
 
             loss = loss_function(logits, labels)
             total_loss += loss.item()
@@ -146,6 +130,8 @@ if __name__ == "__main__":
     parser.add_argument("--early_exit", type=int, default=None, help="Exit training after n batches for debugging.")
     parser.add_argument("--epochs", type=int, default=0, help="Number of epochs")
     parser.add_argument("--checkpoint_path", type=str, default="model_checkpoint.pth")
+    parser.add_argument("--use_baseline", action='store_true')
+    parser.add_argument("--report_path", type=str, default="report.txt")
     args = parser.parse_args()
 
     file_path = args.file_path
@@ -154,7 +140,9 @@ if __name__ == "__main__":
     PRINT_EVERY = args.print_every
     EARLY_EXIT = args.early_exit
     EPOCHS = args.epochs
+    IS_BASELINE = args.use_baseline
     checkpoint_path = args.checkpoint_path
+    report_path = args.report_path
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     dataset = FinancialDataset(file_path, tokenizer)
@@ -172,7 +160,11 @@ if __name__ == "__main__":
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    model = StockPredictor()
+    if IS_BASELINE:
+        model = BaselineModel()
+    else:
+        model = StockPredictor()
+
     loss_fn = torch.nn.CrossEntropyLoss(reduction="sum")
     learning_rate = 1e-4
     optimizer = AdamW(model.parameters(), lr=learning_rate)
@@ -182,12 +174,18 @@ if __name__ == "__main__":
     epoch = 0
     if os.path.exists(checkpoint_path):
         model, optimizer, epoch, neutral_window = load_model(checkpoint_path, model, optimizer)
+    else:
+        create_report_file(report_path, BATCH_SIZE, NEUTRAL_WINDOW)
+        avg_loss, accuracy, f1 = evaluate(model, test_dataloader, loss_fn, device, epoch)
+        append_loss_data(report_path, epoch, avg_loss, accuracy, f1)
 
-    avg_loss, accuracy, f1 = evaluate(model, test_dataloader, loss_fn, device, epoch)
+
+
     for i in range(epoch, EPOCHS):
         epoch += 1
         train_epoch(model, train_dataloader, loss_fn, optimizer, device, epoch)
         avg_loss, accuracy, f1 = evaluate(model, test_dataloader, loss_fn, device, epoch)
+        append_loss_data(report_path, epoch, avg_loss, accuracy, f1)
         save_model(epoch, model, optimizer, NEUTRAL_WINDOW, checkpoint_path)
 
     model, optimizer, epoch, neutral_window = load_model(checkpoint_path, model, optimizer)

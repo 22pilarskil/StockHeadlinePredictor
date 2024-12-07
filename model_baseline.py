@@ -1,34 +1,42 @@
 import torch
 from torch import nn
 from transformers import BertForSequenceClassification, BertTokenizer, AutoTokenizer
-import numpy as np
-from DataLoader.dataset import WINDOW_SIZE
-
-
 
 class BaselineModel(nn.Module):
-    def __init__(self, modelname='yiyanghkust/finbert-tone', num_labels=3, hidden_dim=64):
+    def __init__(self, modelname='yiyanghkust/finbert-tone', num_labels=3, hidden_dim=32, num_financial_features=8, lstm_layers=2):
         super(BaselineModel, self).__init__()
         self.tokenizer = BertTokenizer.from_pretrained(modelname)
         self.finbert = BertForSequenceClassification.from_pretrained(modelname, num_labels=3)
-        self.financial_projection = nn.Sequential(
-            nn.Linear(WINDOW_SIZE, 32),
-            nn.ReLU(),
-            nn.Linear(32, hidden_dim)
+        self.lstm = nn.LSTM(
+            input_size=num_financial_features + 3,
+            hidden_size=hidden_dim,
+            num_layers=lstm_layers,
+            batch_first=True
         )
-        self.linear = nn.Linear(hidden_dim + 1, num_labels)
+        self.linear = nn.Linear(hidden_dim, num_labels)
 
-    # input_ids are the tokenized sentence, or input can be title and then use tokenizer in the forward method.
-    def forward(self, input_ids, financial_data):
+    def forward(self, headlines, financial_data):
         financial_data = financial_data.float()
-        sentiment_scores = self.finbert(input_ids)[0]
-        sentiment_scores = np.argmax(sentiment_scores.detach().numpy(), axis=-1) # (batch_size,)
-        sentiment_scores = torch.from_numpy(sentiment_scores)
-        sentiment_scores = sentiment_scores.unsqueeze(-1)  # batch_size x 1
-        financial_data = self.financial_projection(financial_data) # batch_size x seq_len x 64
-        seq_len = financial_data.size(1)
-        sentiment_scores= sentiment_scores.unsqueeze(1).expand(-1, seq_len, -1)
-        concatenated = torch.cat((financial_data, sentiment_scores), dim=-1)
-        cls_output = concatenated[:,0,:]
-        logits = self.linear(cls_output)
+
+        encoded_text = self.tokenizer(
+            headlines,
+            padding=True,
+            truncation=True,
+            max_length=128,
+            return_tensors="pt" 
+        )
+        input_ids = encoded_text['input_ids'].squeeze(0)
+        attention_mask = encoded_text['attention_mask'].squeeze(0)
+
+        sentiment_scores = self.finbert(input_ids=input_ids, attention_mask=attention_mask)[0]
+
+        financial_data = financial_data.permute(0, 2, 1)
+        _, seq_length, _ = financial_data.size()
+        repeated_sentiments = sentiment_scores.unsqueeze(1).repeat(1, seq_length, 1)
+        combined_input = torch.cat([financial_data, repeated_sentiments], dim=-1)
+        lstm_out, _ = self.lstm(combined_input)
+
+        final_output = lstm_out[:, -1, :]
+        logits = self.linear(final_output)
+
         return logits
