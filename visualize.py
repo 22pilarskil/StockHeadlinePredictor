@@ -14,6 +14,9 @@ from model_baseline import BaselineModel
 from util import *
 
 def plot_confusion_matrix(predictions, true_labels, title="Confusion Matrix", ax=None):
+    print("NEGATIVE PREDS:", predictions.count(0))
+    print("NEUTRAL PREDS:", predictions.count(1))
+    print("POSITIVE PREDS:", predictions.count(2))
     cm = confusion_matrix(true_labels, predictions)
 
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Negative', 'Neutral', 'Positive'], yticklabels=['Negative', 'Neutral', 'Positive'], ax=ax)
@@ -36,7 +39,7 @@ def plot_confidence_distribution(correct_preds, incorrect_preds, confidence, ax)
 def evaluate_model(model, data_loader, loss_function, device, figure_path):
     model.eval()
     total_loss = 0
-    total_examples = 0
+    total_batches = 0
     all_preds = []
     all_labels = []
     all_confidences = []  # Track confidence scores
@@ -60,7 +63,7 @@ def evaluate_model(model, data_loader, loss_function, device, figure_path):
 
             loss = loss_function(logits, labels)
             total_loss += loss.item()
-            total_examples += input_ids.size(0)
+            total_batches += 1
 
             # Compute probabilities and confidence (max probability of the predicted class)
             probabilities = F.softmax(logits, dim=1)
@@ -91,7 +94,7 @@ def evaluate_model(model, data_loader, loss_function, device, figure_path):
 
     weighted_f1 = weighted_f1_score(np.array(all_preds), np.array(all_labels), np.array(all_confidences))
 
-    avg_loss = total_loss / total_examples
+    avg_loss = total_loss / total_batches
 
     # Print metrics
     print(f"Average Loss: {avg_loss:.4f}")
@@ -166,7 +169,7 @@ if __name__ == "__main__":
     else:
         model = StockPredictor()
 
-    loss_fn = torch.nn.CrossEntropyLoss(reduction="sum")
+    loss_fn = torch.nn.CrossEntropyLoss(reduction="mean")
     optimizer = AdamW(model.parameters(), lr=0)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

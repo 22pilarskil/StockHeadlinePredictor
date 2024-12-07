@@ -19,7 +19,7 @@ IS_BASELINE = True
 def train_epoch(model, data_loader, loss_function, optimizer, device, epoch):
     model.train()
     total_loss = 0
-    total_examples = 0
+    total_batches = 0
     all_preds = []
     all_labels = []
 
@@ -44,11 +44,11 @@ def train_epoch(model, data_loader, loss_function, optimizer, device, epoch):
         optimizer.step()
 
         if batch_num % PRINT_EVERY == 0:
-            print("EPOCH {}: BATCH {}/{}, LOSS: {:.4f}".format(epoch, batch_num, len(data_loader), loss.item() / input_ids.size(0)))
+            print("EPOCH {}: BATCH {}/{}, LOSS: {:.4f}".format(epoch, batch_num, len(data_loader), loss.item()))
             print("LOGITS MEAN", logits.mean(dim=0))
 
         total_loss += loss.item()
-        total_examples += input_ids.size(0)
+        total_batches += 1
 
         preds = torch.argmax(logits, dim=1).cpu().numpy()
         true_labels = labels.cpu().numpy()
@@ -57,7 +57,7 @@ def train_epoch(model, data_loader, loss_function, optimizer, device, epoch):
         if EARLY_EXIT is not None and batch_num > EARLY_EXIT:
             break
 
-    avg_loss = total_loss / total_examples
+    avg_loss = total_loss / total_batches
     accuracy = accuracy_score(all_labels, all_preds)
     return avg_loss, accuracy
 
@@ -65,7 +65,7 @@ def train_epoch(model, data_loader, loss_function, optimizer, device, epoch):
 def evaluate(model, data_loader, loss_function, device, epoch):
     model.eval()
     total_loss = 0
-    total_examples = 0
+    total_batches = 0
     all_preds = []
     all_labels = []
     positive_samples = 0
@@ -93,7 +93,7 @@ def evaluate(model, data_loader, loss_function, device, epoch):
 
             loss = loss_function(logits, labels)
             total_loss += loss.item()
-            total_examples += input_ids.size(0)
+            total_batches += 1
 
             preds = torch.argmax(logits, dim=1).cpu().numpy()
             true_labels = labels.cpu().numpy()
@@ -102,12 +102,12 @@ def evaluate(model, data_loader, loss_function, device, epoch):
             if EARLY_EXIT is not None and batch_num > EARLY_EXIT:
                 break
 
-    avg_loss = total_loss / total_examples
+    avg_loss = total_loss / total_batches
     accuracy = accuracy_score(all_labels, all_preds)
     f1 = f1_score(all_labels, all_preds, average='weighted')  
     print("EPOCH {}:\nAverage Loss: {}\nAccuracy: {}\nF1 Score: {}".format(epoch, avg_loss, accuracy, f1))
     print("Data distribution:\nNegative Samples: {}\nNeutral Samples: {}\nNegative Samples: {}".format(negative_samples, neutral_samples, positive_samples))
-    print("Negative %: {:.4f}\nNeutral %: {:.4f}\nPositive %: {:.4f}".format(negative_samples / total_examples, neutral_samples / total_examples, positive_samples / total_examples))
+    print("Negative %: {:.4f}\nNeutral %: {:.4f}\nPositive %: {:.4f}".format(negative_samples / total_batches, neutral_samples / total_batches, positive_samples / total_batches))
     print("-----------------------------------\n")
 
     return avg_loss, accuracy, f1
@@ -164,7 +164,7 @@ if __name__ == "__main__":
     else:
         model = StockPredictor()
 
-    loss_fn = torch.nn.CrossEntropyLoss(reduction="sum")
+    loss_fn = torch.nn.CrossEntropyLoss(reduction="mean")
     learning_rate = 1e-4
     optimizer = AdamW(model.parameters(), lr=learning_rate)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
