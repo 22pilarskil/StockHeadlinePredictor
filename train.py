@@ -107,7 +107,7 @@ def evaluate(model, data_loader, loss_function, device, epoch):
     f1 = f1_score(all_labels, all_preds, average='weighted')  
     print("EPOCH {}:\nAverage Loss: {}\nAccuracy: {}\nF1 Score: {}".format(epoch, avg_loss, accuracy, f1))
     print("Data distribution:\nNegative Samples: {}\nNeutral Samples: {}\nNegative Samples: {}".format(negative_samples, neutral_samples, positive_samples))
-    print("Negative %: {:.4f}\nNeutral %: {:.4f}\nPositive %: {:.4f}".format(negative_samples / total_batches, neutral_samples / total_batches, positive_samples / total_batches))
+    print("Negative %: {:.4f}\nNeutral %: {:.4f}\nPositive %: {:.4f}".format(negative_samples / total_batches / BATCH_SIZE, neutral_samples / total_batches / BATCH_SIZE, positive_samples / total_batches / BATCH_SIZE))
     print("-----------------------------------\n")
 
     return avg_loss, accuracy, f1
