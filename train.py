@@ -1,4 +1,5 @@
 import torch
+from torchviz import make_dot
 from transformers import BertTokenizer, AdamW
 from torch.utils.data import DataLoader
 from DataLoader.dataset import FinancialDataset
@@ -8,6 +9,7 @@ from model_baseline import BaselineModel
 from util import *
 import argparse
 import os
+import time
 
 BATCH_SIZE = None
 NEUTRAL_WINDOW = None
@@ -24,6 +26,7 @@ def train_epoch(model, data_loader, loss_function, optimizer, device, epoch):
     all_labels = []
 
     for batch_num, batch in enumerate(data_loader):
+        start = time.time()
         input_ids = batch['text_input_ids'].to(device)
         attention_mask = batch['text_attention_mask'].to(device)
         financial_data = batch['numerical_features'].to(device)
@@ -37,7 +40,6 @@ def train_epoch(model, data_loader, loss_function, optimizer, device, epoch):
             logits = model(headlines=headlines, financial_data=financial_data, device=device)
         else:
             logits = model(input_ids=input_ids, attention_mask=attention_mask, financial_data=financial_data)
-
 
         loss = loss_function(logits, labels)
         loss.backward()
@@ -54,6 +56,8 @@ def train_epoch(model, data_loader, loss_function, optimizer, device, epoch):
         true_labels = labels.cpu().numpy()
         all_preds.extend(preds)
         all_labels.extend(true_labels)
+
+        print("TIME TAKEN:", time.time() - start)
         if EARLY_EXIT is not None and batch_num > EARLY_EXIT:
             break
 
@@ -186,9 +190,6 @@ if __name__ == "__main__":
         avg_loss, accuracy, f1 = evaluate(model, test_dataloader, loss_fn, device, epoch)
         append_loss_data(report_path, epoch, avg_loss, accuracy, f1)
         save_model(epoch, model, optimizer, NEUTRAL_WINDOW, checkpoint_path)
-
-    model, optimizer, epoch, neutral_window = load_model(checkpoint_path, model, optimizer)
-    print(neutral_window)
 
 # Example usage:
 # python3 train.py --print_every 100 --epochs 5 --batch_size 32

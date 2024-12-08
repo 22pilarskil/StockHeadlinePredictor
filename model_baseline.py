@@ -5,8 +5,13 @@ from transformers import BertForSequenceClassification, BertTokenizer, AutoToken
 class BaselineModel(nn.Module):
     def __init__(self, modelname='yiyanghkust/finbert-tone', num_labels=3, hidden_dim=32, num_financial_features=8, lstm_layers=2):
         super(BaselineModel, self).__init__()
+        
         self.tokenizer = BertTokenizer.from_pretrained(modelname)
+
         self.finbert = BertForSequenceClassification.from_pretrained(modelname, num_labels=3)
+        for param in self.finbert.parameters():
+            param.requires_grad = False
+
         self.lstm = nn.LSTM(
             input_size=num_financial_features + 3,
             hidden_size=hidden_dim,
