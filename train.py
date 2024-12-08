@@ -1,5 +1,4 @@
 import torch
-from torchviz import make_dot
 from transformers import BertTokenizer, AdamW
 from torch.utils.data import DataLoader
 from DataLoader.dataset import FinancialDataset
@@ -9,7 +8,6 @@ from model_baseline import BaselineModel
 from util import *
 import argparse
 import os
-import time
 
 BATCH_SIZE = None
 NEUTRAL_WINDOW = None
@@ -26,7 +24,6 @@ def train_epoch(model, data_loader, loss_function, optimizer, device, epoch):
     all_labels = []
 
     for batch_num, batch in enumerate(data_loader):
-        start = time.time()
         input_ids = batch['text_input_ids'].to(device)
         attention_mask = batch['text_attention_mask'].to(device)
         financial_data = batch['numerical_features'].to(device)
@@ -57,7 +54,6 @@ def train_epoch(model, data_loader, loss_function, optimizer, device, epoch):
         all_preds.extend(preds)
         all_labels.extend(true_labels)
 
-        print("TIME TAKEN:", time.time() - start)
         if EARLY_EXIT is not None and batch_num > EARLY_EXIT:
             break
 
