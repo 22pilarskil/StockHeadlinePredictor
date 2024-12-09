@@ -32,7 +32,6 @@ class StockPredictor(nn.Module):
 
         bert_sequence_output = self.bert_projection(bert_sequence_output)
 
-
         attn_output, _ = self.cross_attention(bert_sequence_output, financial_data, financial_data)
 
         transformer_output = self.transformer_encoder(attn_output)

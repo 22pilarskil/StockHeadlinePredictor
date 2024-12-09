@@ -7,17 +7,18 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import numpy as np
 import argparse
+import pickle
 
 from DataLoader.dataset import FinancialDataset
 from model import StockPredictor
 from model_baseline import BaselineModel
 from util import *
 
-def plot_confusion_matrix(predictions, true_labels, title="Confusion Matrix", ax=None):
-    print("NEGATIVE PREDS:", predictions.count(0))
-    print("NEUTRAL PREDS:", predictions.count(1))
-    print("POSITIVE PREDS:", predictions.count(2))
+def plot_confusion_matrix(predictions, true_labels, title="Confusion Matrix", ax=None, cm_output_file="cm_output.pkl"):
+
     cm = confusion_matrix(true_labels, predictions)
+    with open(cm_output_file, "wb") as file:
+        pickle.dump(cm, file)
 
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Negative', 'Neutral', 'Positive'], yticklabels=['Negative', 'Neutral', 'Positive'], ax=ax)
     ax.set_title(title)
@@ -36,7 +37,7 @@ def plot_confidence_distribution(correct_preds, incorrect_preds, confidence, ax)
     ax.set_ylabel("Number of Predictions")
 
 
-def evaluate_model(model, data_loader, loss_function, device, figure_path):
+def evaluate_model(model, data_loader, loss_function, device, figure_path, cm_output_file):
     model.eval()
     total_loss = 0
     total_batches = 0
@@ -86,7 +87,7 @@ def evaluate_model(model, data_loader, loss_function, device, figure_path):
 
     fig, ax = plt.subplots(1, 2, figsize=(16, 6))  # 1 row, 2 columns
 
-    plot_confusion_matrix(all_preds, all_labels, title=f'Confusion Matrix: {"Baseline" if IS_BASELINE else "Non-baseline"}', ax=ax[0])
+    plot_confusion_matrix(all_preds, all_labels, title=f'Confusion Matrix {"(baseline)" if IS_BASELINE else "(proposed)"}', ax=ax[0], cm_output_file=cm_output_file)
 
     plot_confidence_distribution(correct_preds, incorrect_preds, np.array(all_confidences), ax=ax[1])
 
@@ -140,6 +141,7 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_path", type=str, default="model_checkpoint.pth")
     parser.add_argument("--figure_path", type=str, default="figure.png")
     parser.add_argument("--use_baseline", action='store_true')
+    parser.add_argument("--cm_output_file", default="cm_output.pkl")
     args = parser.parse_args()
 
     file_path = args.file_path
@@ -147,6 +149,7 @@ if __name__ == "__main__":
     EARLY_EXIT = args.early_exit
     figure_path = args.figure_path
     checkpoint_path = args.checkpoint_path
+    cm_output_file = args.cm_output_file
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     dataset = FinancialDataset(file_path, tokenizer)
@@ -177,4 +180,4 @@ if __name__ == "__main__":
     model = model.to(device)
 
     # Evaluate the model and plot both confusion matrix and confidence distribution
-    avg_loss, weighted_accuracy, weighted_f1 = evaluate_model(model, test_dataloader, loss_fn, device, figure_path)
+    avg_loss, weighted_accuracy, weighted_f1 = evaluate_model(model, test_dataloader, loss_fn, device, figure_path, cm_output_file)

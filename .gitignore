@@ -5,3 +5,6 @@ __pycache__/
 *.zip
 *.pth
 *.txt
+test*
+*.pkl
+*.png
