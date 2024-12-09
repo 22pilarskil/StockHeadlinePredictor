@@ -7,7 +7,7 @@ DATE_HEADER = "Date"
 
 class StockHistory:
 
-    def __init__(self, ticker, folder_path, back_window_size=7, forward_window_size=1, max_back_offset=3, max_forward_offset=4):
+    def __init__(self, ticker, folder_path, back_window_size=10, forward_window_size=1, max_back_offset=3, max_forward_offset=4):
         self.ticker = ticker
         self.df = self.generate_dataframe(folder_path, back_window_size=back_window_size, forward_window_size=forward_window_size)
         self.max_back_offset = max_back_offset
@@ -25,18 +25,7 @@ class StockHistory:
         df = df.sort_values(by=DATE_HEADER, ascending=False)
 
         lagged_data = {}
-        headers = ["Open", "High", "Low", "Close"]
-
-        # Volume pct_change expressed as a fraction of the previous day's volume
-        df["Volume_pct_change"] = df["Volume"].pct_change()
-
-        for header in headers:
-            # Use log returns for price attributes
-            df[f"{header}_processed"] = np.log(df[header] / df[header].shift(-1))
-        df = df.head(-1).reset_index(drop=True)
-
-        # Use a rolling window of 10 trading days to compute 2-week volatility (annualised)
-        lagged_data["2_week_volatility"] = df["Close_processed"].rolling(window=10).std() * (252 ** 0.5)
+        headers = ["Open", "High", "Low", "Close", "Volume"]
 
         # RSI Computation (2 weeks)
         RSI_WINDOW = 10
@@ -52,22 +41,38 @@ class StockHistory:
             df.loc[i, 'Avg_gain'] = (df.loc[i-1, 'Avg_gain'] * (RSI_WINDOW - 1) + df.loc[i, 'Gain']) / RSI_WINDOW
             df.loc[i, 'Avg_loss'] = (df.loc[i-1, 'Avg_loss'] * (RSI_WINDOW - 1) + df.loc[i, 'Loss']) / RSI_WINDOW
 
-        lagged_data["2_week_RSI"] = 100 - (100 / (1 + df["Avg_gain"] / df["Avg_loss"]))
+        df["2_week_RSI"] = (100 - (100 / (1 + df["Avg_gain"] / df["Avg_loss"]))) / 100
+        # Add 1 to numerator and denominator to avoid divide by 0 warnings and taking the log of 0
+        df["Log_Volume"] = np.log((df["Volume"] + 1) / (df["Volume"] + 1).shift(-1) )
+
+        for header in headers:
+            # Use percentage change for price attributes
+            df[f"{header}_pct_change"] = df[header].pct_change()
+        df = df.head(-1).reset_index(drop=True)
+
+        # Use a rolling window of 10 trading days to compute 2-week volatility (annualised)
+        df["2_week_volatility"] = df["Close_pct_change"].rolling(window=10).std() * (252 ** 0.5)
+        # some entries have a volatility of 0, so we add 1e-9 just to avoid taking the log of 0
+        df["Log_2_week_volatility"] = np.log(df["2_week_volatility"] + 1e-9)
+
+        # We will also use these headers for day-by-day data
+        other_headers = ["2_week_RSI", "Log_Volume", "Log_2_week_volatility"]
 
         # Compute lagged data for past window
         for i in range(1, back_window_size + 1):
             for header in headers:
-                lagged_data[f"D-{i} {header}"] = df[f"{header}_processed"].shift(-i)
-            lagged_data[f"D-{i} Volume"] = df["Volume"].shift(-i)
-            lagged_data[f"D-{i} Volume_pct_change"] = df["Volume_pct_change"].shift(-i)
+                # clip percentage changes to +/- 10%
+                lagged_data[f"D-{i} {header}"] = df[f"{header}_pct_change"].shift(-i).clip(lower=-0.1, upper=0.1)
+            for header in other_headers:
+                lagged_data[f"D-{i} {header}"] = df[header].shift(-i)
         
         # Compute lagged data for future window i.e. labels
         # start from D+1 rather than D+0
         for i in range(1, forward_window_size + 1):
             for header in headers:
-                lagged_data[f"D+{i} {header}"] = df[f"{header}_processed"].shift(i)
-            lagged_data[f"D+{i} Volume"] = df["Volume"].shift(i)
-            lagged_data[f"D+{i} Volume_pct_change"] = df["Volume_pct_change"].shift(i)
+                lagged_data[f"D+{i} {header}"] = df[f"{header}_pct_change"].shift(i)
+            for header in other_headers:
+                lagged_data[f"D+{i} {header}"] = df[header].shift(i)
 
         lagged_df = pd.DataFrame(lagged_data)
         combined_df = pd.concat([df[DATE_HEADER], lagged_df], axis=1).dropna().reset_index(drop=True)

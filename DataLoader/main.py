@@ -140,6 +140,6 @@ def combine_headlines_and_stock_prices(csv_file, back_window_size=7, forward_win
 
 if __name__ == "__main__":
     rename_stock_files(STOCK_DATA_FOLDER_PATH)
-    filtered_headlines_file = generate_filtered_csv_file(CSV_FILE)
-    combine_headlines_and_stock_prices("../Data/analyst_ratings_processed_filtered.csv", back_window_size=7, forward_window_size=1)        
+    # filtered_headlines_file = generate_filtered_csv_file(CSV_FILE)
+    combine_headlines_and_stock_prices("../Data/analyst_ratings_processed_filtered.csv", back_window_size=10, forward_window_size=1)        
 
